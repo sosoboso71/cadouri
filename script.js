@@ -1,86 +1,95 @@
- // -----------------------------
-// CANVAS SETUP (cu scalare corectă DPI)
+  // -----------------------------
+// CANVAS SETUP
 // -----------------------------
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 function resize() {
-    const dpr = window.devicePixelRatio || 1;
-
-    canvas.style.width = window.innerWidth + "px";
-    canvas.style.height = window.innerHeight + "px";
-
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-
-    ctx.scale(dpr, dpr);
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 }
 resize();
 window.onresize = resize;
 
 // -----------------------------
-// OBIECTE (emoji + stickere)
+// OBIECTE (emoji + profile pics)
 // -----------------------------
 let objects = [];
-let confetti = [];
-
 const MAX_OBJECTS = 150;
 
 // -----------------------------
-// SPAWN EMOJI
+// SPAWN EMOJI + PROFILE PIC
 // -----------------------------
-function spawnEmoji(emoji) {
-    if (objects.length > MAX_OBJECTS) return;
-
-    objects.push({
-        type: "emoji",
-        emoji: emoji,
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        vx: (Math.random() * 2 - 1) * 6,   // viteza marita
-        vy: (Math.random() * 2 - 1) * 6,
-        size: 60 + Math.random() * 40,     // emoji mai mari
-        born: Date.now()
-    });
-}
-
-// -----------------------------
-// SPAWN STICKER (PNG/JPG)
-// -----------------------------
-function spawnSticker(url) {
+function spawnProfileEmoji(emoji, profileUrl) {
     if (objects.length > MAX_OBJECTS) return;
 
     const img = new Image();
-    img.src = url;
+    img.crossOrigin = "anonymous";
+    img.src = profileUrl;
 
-    objects.push({
-        type: "sticker",
-        img: img,
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        vx: (Math.random() * 2 - 1) * 6,   // viteza marita
-        vy: (Math.random() * 2 - 1) * 6,
-        size: 120 + Math.random() * 80,    // stickere mult mai mari
-        born: Date.now()
-    });
+    img.onload = () => {
+        const animations = ["bounce", "float", "explode", "spin"];
+
+        objects.push({
+            type: "profileEmoji",
+            img: img,
+            emoji: emoji,
+            x: Math.random() * canvas.width,
+            y: canvas.height + 50,
+            size: 60,
+            alpha: 1,
+            vx: (Math.random() - 0.5) * 2,
+            vy: -2 - Math.random() * 2,
+            rotation: 0,
+            rotationSpeed: (Math.random() - 0.5) * 0.1,
+            animationType: animations[Math.floor(Math.random() * animations.length)],
+            born: Date.now()
+        });
+    };
 }
 
 // -----------------------------
-// CONFETTI REAL
+// DESENARE POZĂ ÎN CERC
 // -----------------------------
-function startConfetti() {
-    for (let i = 0; i < 150; i++) {
-        confetti.push({
-            x: Math.random() * window.innerWidth,
-            y: -20,
-            vx: (Math.random() - 0.5) * 3,
-            vy: 3 + Math.random() * 4,
-            size: 6 + Math.random() * 6,
-            color: `hsl(${Math.random() * 360}, 90%, 60%)`,
-            angle: Math.random() * Math.PI * 2,
-            spin: (Math.random() - 0.5) * 0.25
-        });
+function drawCircleImage(ctx, img, x, y, size, rotation) {
+    ctx.save();
+    ctx.translate(x + size/2, y + size/2);
+    ctx.rotate(rotation);
+    ctx.beginPath();
+    ctx.arc(0, 0, size/2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(img, -size/2, -size/2, size, size);
+    ctx.restore();
+}
+
+// -----------------------------
+// ANIMAȚII RANDOM
+// -----------------------------
+function animateBounce(o) {
+    o.vy += 0.1;
+    o.y += o.vy;
+    if (o.y > canvas.height - o.size) {
+        o.y = canvas.height - o.size;
+        o.vy *= -0.7;
     }
+}
+
+function animateFloat(o) {
+    o.y -= 1.5;
+    o.alpha -= 0.003;
+}
+
+function animateExplode(o) {
+    o.x += o.vx * 5;
+    o.y += o.vy * 5;
+    o.alpha -= 0.01;
+}
+
+function animateSpin(o) {
+    o.y -= 1.2;
+    o.rotation += o.rotationSpeed;
+    o.alpha -= 0.004;
 }
 
 // -----------------------------
@@ -91,56 +100,29 @@ function loop() {
 
     const now = Date.now();
 
-    // -----------------------------
-    // RANDAT EMOJI + STICKERE
-    // -----------------------------
     for (let i = objects.length - 1; i >= 0; i--) {
         const o = objects[i];
 
-        o.x += o.vx;
-        o.y += o.vy;
+        // APLICĂ ANIMAȚIA RANDOM
+        if (o.animationType === "bounce") animateBounce(o);
+        if (o.animationType === "float") animateFloat(o);
+        if (o.animationType === "explode") animateExplode(o);
+        if (o.animationType === "spin") animateSpin(o);
 
-        o.vx *= 0.99;
-        o.vy *= 0.99;
+        ctx.globalAlpha = o.alpha;
 
-        if (o.x < 0 || o.x > window.innerWidth) o.vx *= -1;
-        if (o.y < 0 || o.y > window.innerHeight) o.vy *= -1;
+        // DESENARE POZĂ DE PROFIL
+        drawCircleImage(ctx, o.img, o.x, o.y, o.size, o.rotation);
 
-        if (o.type === "emoji") {
-            ctx.font = o.size + "px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(o.emoji, o.x, o.y);
-        }
+        // DESENARE EMOJI LÂNGĂ POZĂ
+        ctx.font = "40px Arial";
+        ctx.fillText(o.emoji, o.x + o.size + 10, o.y + o.size * 0.75);
 
-        if (o.type === "sticker" && o.img.complete) {
-            ctx.drawImage(o.img, o.x - o.size/2, o.y - o.size/2, o.size, o.size);
-        }
+        ctx.globalAlpha = 1;
 
-        if (now - o.born > 6000) {
+        // ȘTERGE DUPĂ 6 SECUNDE
+        if (now - o.born > 6000 || o.alpha <= 0) {
             objects.splice(i, 1);
-        }
-    }
-
-    // -----------------------------
-    // RANDAT CONFETTI
-    // -----------------------------
-    for (let i = confetti.length - 1; i >= 0; i--) {
-        const c = confetti[i];
-
-        c.x += c.vx;
-        c.y += c.vy;
-        c.angle += c.spin;
-
-        ctx.save();
-        ctx.translate(c.x, c.y);
-        ctx.rotate(c.angle);
-        ctx.fillStyle = c.color;
-        ctx.fillRect(-c.size/2, -c.size/2, c.size, c.size);
-        ctx.restore();
-
-        if (c.y > window.innerHeight + 50) {
-            confetti.splice(i, 1);
         }
     }
 
@@ -149,7 +131,7 @@ function loop() {
 loop();
 
 // -----------------------------
-// WEBSOCKET INDofinity
+// WEBSOCKET INDOfinity
 // -----------------------------
 const ws = new WebSocket("ws://localhost:62024");
 
@@ -159,50 +141,32 @@ ws.onmessage = (event) => {
     try {
         const packet = JSON.parse(event.data);
 
-        // -----------------------------
-        // CHAT
-        // -----------------------------
         if (packet.event === "chat") {
             const data = packet.data;
+
             const msg = data.comment || "";
             const user = data.nickname || "";
+            const profile = data.profilePictureUrl || null;
+
+            if (!profile) return;
 
             const emojiRegex = /\p{Emoji_Presentation}|\p{Emoji}\uFE0F/gu;
             let msgEmojis = msg.match(emojiRegex) || [];
             let nameEmojis = user.match(emojiRegex) || [];
 
-            [...msgEmojis, ...nameEmojis].forEach(spawnEmoji);
-
-            if (data.emotes) {
-                data.emotes.forEach(e => {
-                    if (e.emoteImageUrl) spawnSticker(e.emoteImageUrl);
-                });
-            }
-
-            if (data.userBadges) {
-                data.userBadges.forEach(b => {
-                    if (b.badgeSceneType === 10 && b.image) {
-                        spawnSticker(b.image);
-                    }
-                });
-            }
-
-            const lower = msg.toLowerCase();
-            if (lower.includes("boom")) spawnEmoji("💥");
-            if (lower.includes("party")) startConfetti();
-            if (lower.includes("rain")) spawnEmoji("🌧️");
-            if (lower.includes("spin")) spawnEmoji("🌀");
+            [...msgEmojis, ...nameEmojis].forEach(e => {
+                spawnProfileEmoji(e, profile);
+            });
         }
 
-        // -----------------------------
-        // CADOURI
-        // -----------------------------
         if (packet.event === "gift") {
             const g = packet.data;
+            const profile = g.profilePictureUrl || null;
+            if (!profile) return;
 
-            if (g.diamondCount <= 1) startConfetti();
-            else if (g.diamondCount <= 20) spawnEmoji("💥");
-            else spawnEmoji("🤯");
+            if (g.diamondCount <= 1) spawnProfileEmoji("🎉", profile);
+            else if (g.diamondCount <= 20) spawnProfileEmoji("💥", profile);
+            else spawnProfileEmoji("🤯", profile);
         }
 
     } catch (err) {
