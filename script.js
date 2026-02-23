@@ -1,170 +1,152 @@
-const ws = new WebSocket("ws://localhost:62024");
-const emojiContainer = document.getElementById("emoji-container");
+ // -----------------------------
+// CANVAS SETUP
+// -----------------------------
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-const emojiRegex = /\p{Emoji_Presentation}|\p{Emoji}\uFE0F/gu;
-
-// Elimină cifrele romane / simboluri false
-function filterRealEmojis(list) {
-    return list.filter(e =>
-        !/^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅪⅫⅬⅭⅮⅯ]+$/.test(e)
-    );
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 }
+resize();
+window.onresize = resize;
 
 // -----------------------------
-// SISTEM FIZIC GLOBAL
+// OBIECTE (emoji + stickere)
 // -----------------------------
 let objects = [];
+let confetti = [];
 
-function spawnPhysicsObject(el) {
-    const w = emojiContainer.clientWidth;
-    const h = emojiContainer.clientHeight;
+const MAX_OBJECTS = 150;
 
-    const obj = {
-        el,
-        x: Math.random() * (w - 100),
-        y: Math.random() * (h - 100),
-        vx: (Math.random() * 2 - 1) * 6,
-        vy: (Math.random() * 2 - 1) * 6,
-        size: el.offsetWidth,
+// -----------------------------
+// SPAWN EMOJI
+// -----------------------------
+function spawnEmoji(emoji) {
+    if (objects.length > MAX_OBJECTS) return;
+
+    objects.push({
+        type: "emoji",
+        emoji: emoji,
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() * 2 - 1) * 3,
+        vy: (Math.random() * 2 - 1) * 3,
+        size: 40 + Math.random() * 40,
         born: Date.now()
-    };
-    objects.push(obj);
+    });
 }
 
 // -----------------------------
-// EXPLOZIE MEDIE
+// SPAWN STICKER (PNG/JPG)
 // -----------------------------
-function explode(obj) {
-    const rect = obj.el.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+function spawnSticker(url) {
+    if (objects.length > MAX_OBJECTS) return;
 
-    for (let i = 0; i < 6; i++) {
-        const p = document.createElement("div");
-        p.classList.add("particle");
-        p.style.left = centerX + "px";
-        p.style.top = centerY + "px";
-        emojiContainer.appendChild(p);
+    const img = new Image();
+    img.src = url;
 
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 10 + Math.random() * 10;
+    objects.push({
+        type: "sticker",
+        img: img,
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() * 2 - 1) * 3,
+        vy: (Math.random() * 2 - 1) * 3,
+        size: 60 + Math.random() * 40,
+        born: Date.now()
+    });
+}
 
-        const vx = Math.cos(angle) * speed;
-        const vy = Math.sin(angle) * speed;
-
-        animateParticle(p, vx, vy);
+// -----------------------------
+// CONFETTI REAL
+// -----------------------------
+function startConfetti() {
+    for (let i = 0; i < 150; i++) {
+        confetti.push({
+            x: Math.random() * canvas.width,
+            y: -20,
+            vx: (Math.random() - 0.5) * 2,
+            vy: 2 + Math.random() * 3,
+            size: 5 + Math.random() * 5,
+            color: `hsl(${Math.random() * 360}, 90%, 60%)`,
+            angle: Math.random() * Math.PI * 2,
+            spin: (Math.random() - 0.5) * 0.2
+        });
     }
 }
 
-function animateParticle(p, vx, vy) {
-    let x = parseFloat(p.style.left);
-    let y = parseFloat(p.style.top);
-    let life = 0;
-
-    function frame() {
-        life += 1;
-        x += vx;
-        y += vy;
-        p.style.left = x + "px";
-        p.style.top = y + "px";
-        p.style.opacity = 1 - life / 60;
-
-        if (life < 60) requestAnimationFrame(frame);
-        else p.remove();
-    }
-    frame();
-}
-
 // -----------------------------
-// LOOP FIZIC
+// LOOP DE RANDAT
 // -----------------------------
-function physicsLoop() {
+function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     const now = Date.now();
-    const w = emojiContainer.clientWidth;
-    const h = emojiContainer.clientHeight;
 
+    // -----------------------------
+    // RANDAT EMOJI + STICKERE
+    // -----------------------------
     for (let i = objects.length - 1; i >= 0; i--) {
-        const obj = objects[i];
-        const el = obj.el;
+        const o = objects[i];
 
-        const cx = w / 2;
-        const cy = h / 2;
+        o.x += o.vx;
+        o.y += o.vy;
 
-        const dx = cx - obj.x;
-        const dy = cy - obj.y;
+        o.vx *= 0.99;
+        o.vy *= 0.99;
 
-        obj.vx += dx * 0.0004;
-        obj.vy += dy * 0.0004;
+        if (o.x < 0 || o.x > canvas.width) o.vx *= -1;
+        if (o.y < 0 || o.y > canvas.height) o.vy *= -1;
 
-        obj.vx *= 1.015;
-        obj.vy *= 1.015;
+        if (o.type === "emoji") {
+            ctx.font = o.size + "px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(o.emoji, o.x, o.y);
+        }
 
-        obj.x += obj.vx;
-        obj.y += obj.vy;
+        if (o.type === "sticker" && o.img.complete) {
+            ctx.drawImage(o.img, o.x - o.size/2, o.y - o.size/2, o.size, o.size);
+        }
 
-        if (obj.x < 0 || obj.x > w - obj.size) obj.vx *= -1;
-        if (obj.y < 0 || obj.y > h - obj.size) obj.vy *= -1;
-
-        el.style.left = obj.x + "px";
-        el.style.top = obj.y + "px";
-
-        if (now - obj.born > 8000) {
-            explode(obj);
-            el.remove();
+        if (now - o.born > 6000) {
             objects.splice(i, 1);
         }
     }
 
-    requestAnimationFrame(physicsLoop);
+    // -----------------------------
+    // RANDAT CONFETTI
+    // -----------------------------
+    for (let i = confetti.length - 1; i >= 0; i--) {
+        const c = confetti[i];
+
+        c.x += c.vx;
+        c.y += c.vy;
+        c.angle += c.spin;
+
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.angle);
+        ctx.fillStyle = c.color;
+        ctx.fillRect(-c.size/2, -c.size/2, c.size, c.size);
+        ctx.restore();
+
+        if (c.y > canvas.height + 50) {
+            confetti.splice(i, 1);
+        }
+    }
+
+    requestAnimationFrame(loop);
 }
-physicsLoop();
+loop();
 
 // -----------------------------
-// MULTIPLICARE EMOJI
+// WEBSOCKET INDofinity
 // -----------------------------
-function spawnEmoji(emoji) {
-    for (let i = 0; i < 3; i++) createEmojiInstance(emoji);
+const ws = new WebSocket("ws://localhost:62024");
 
-    setTimeout(() => {
-        for (let i = 0; i < 3; i++) createEmojiInstance(emoji);
-    }, 300);
-}
-
-function createEmojiInstance(emoji) {
-    const el = document.createElement("div");
-    el.classList.add("emoji");
-    el.textContent = emoji;
-
-    el.style.position = "absolute";
-    el.style.fontSize = (40 + Math.random() * 40) + "px";
-
-    emojiContainer.appendChild(el);
-
-    spawnPhysicsObject(el);
-}
-
-// -----------------------------
-// STICKERE
-// -----------------------------
-function spawnSticker(url) {
-    const img = document.createElement("img");
-    img.src = url;
-    img.classList.add("sticker");
-
-    img.style.position = "absolute";
-    img.style.width = (80 + Math.random() * 40) + "px";
-
-    emojiContainer.appendChild(img);
-
-    spawnPhysicsObject(img);
-}
-
-// -----------------------------
-// WEBSOCKET
-// -----------------------------
-ws.onopen = () => {
-    console.log("🔌 Conectat la Indofinity");
-};
+ws.onopen = () => console.log("Conectat la Indofinity");
 
 ws.onmessage = (event) => {
     try {
@@ -175,15 +157,12 @@ ws.onmessage = (event) => {
         // -----------------------------
         if (packet.event === "chat") {
             const data = packet.data;
-
             const msg = data.comment || "";
             const user = data.nickname || "";
 
+            const emojiRegex = /\p{Emoji_Presentation}|\p{Emoji}\uFE0F/gu;
             let msgEmojis = msg.match(emojiRegex) || [];
             let nameEmojis = user.match(emojiRegex) || [];
-
-            msgEmojis = filterRealEmojis(msgEmojis);
-            nameEmojis = filterRealEmojis(nameEmojis);
 
             [...msgEmojis, ...nameEmojis].forEach(spawnEmoji);
 
@@ -193,21 +172,17 @@ ws.onmessage = (event) => {
                 });
             }
 
-            if (data.userBadges && Array.isArray(data.userBadges)) {
-                data.userBadges.forEach(badge => {
-                    if (badge.badgeSceneType === 10 && badge.image) {
-                        spawnSticker(badge.image);
+            if (data.userBadges) {
+                data.userBadges.forEach(b => {
+                    if (b.badgeSceneType === 10 && b.image) {
+                        spawnSticker(b.image);
                     }
                 });
             }
 
-            // -----------------------------
-            // CUVINTE CHEIE
-            // -----------------------------
             const lower = msg.toLowerCase();
-
             if (lower.includes("boom")) spawnEmoji("💥");
-            if (lower.includes("party")) spawnEmoji("🎉");
+            if (lower.includes("party")) startConfetti();
             if (lower.includes("rain")) spawnEmoji("🌧️");
             if (lower.includes("spin")) spawnEmoji("🌀");
         }
@@ -218,20 +193,12 @@ ws.onmessage = (event) => {
         if (packet.event === "gift") {
             const g = packet.data;
 
-            console.log("🎁 Cadou primit:", g.giftName, g.diamondCount);
-
-            if (g.diamondCount <= 1) {
-                spawnEmoji("🎉"); // confetti
-            } 
-            else if (g.diamondCount <= 20) {
-                spawnEmoji("💥"); // explosion
-            } 
-            else {
-                spawnEmoji("🤯"); // vortex
-            }
+            if (g.diamondCount <= 1) startConfetti();
+            else if (g.diamondCount <= 20) spawnEmoji("💥");
+            else spawnEmoji("🤯");
         }
 
     } catch (err) {
-        console.error("Eroare:", err);
+        console.error(err);
     }
 };
