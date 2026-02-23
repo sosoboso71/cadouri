@@ -1,12 +1,19 @@
  // -----------------------------
-// CANVAS SETUP
+// CANVAS SETUP (cu scalare corectă DPI)
 // -----------------------------
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+
+    ctx.scale(dpr, dpr);
 }
 resize();
 window.onresize = resize;
@@ -28,11 +35,11 @@ function spawnEmoji(emoji) {
     objects.push({
         type: "emoji",
         emoji: emoji,
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() * 2 - 1) * 3,
-        vy: (Math.random() * 2 - 1) * 3,
-        size: 40 + Math.random() * 40,
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: (Math.random() * 2 - 1) * 6,   // viteza marita
+        vy: (Math.random() * 2 - 1) * 6,
+        size: 60 + Math.random() * 40,     // emoji mai mari
         born: Date.now()
     });
 }
@@ -49,11 +56,11 @@ function spawnSticker(url) {
     objects.push({
         type: "sticker",
         img: img,
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() * 2 - 1) * 3,
-        vy: (Math.random() * 2 - 1) * 3,
-        size: 60 + Math.random() * 40,
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: (Math.random() * 2 - 1) * 6,   // viteza marita
+        vy: (Math.random() * 2 - 1) * 6,
+        size: 120 + Math.random() * 80,    // stickere mult mai mari
         born: Date.now()
     });
 }
@@ -64,14 +71,14 @@ function spawnSticker(url) {
 function startConfetti() {
     for (let i = 0; i < 150; i++) {
         confetti.push({
-            x: Math.random() * canvas.width,
+            x: Math.random() * window.innerWidth,
             y: -20,
-            vx: (Math.random() - 0.5) * 2,
-            vy: 2 + Math.random() * 3,
-            size: 5 + Math.random() * 5,
+            vx: (Math.random() - 0.5) * 3,
+            vy: 3 + Math.random() * 4,
+            size: 6 + Math.random() * 6,
             color: `hsl(${Math.random() * 360}, 90%, 60%)`,
             angle: Math.random() * Math.PI * 2,
-            spin: (Math.random() - 0.5) * 0.2
+            spin: (Math.random() - 0.5) * 0.25
         });
     }
 }
@@ -96,8 +103,8 @@ function loop() {
         o.vx *= 0.99;
         o.vy *= 0.99;
 
-        if (o.x < 0 || o.x > canvas.width) o.vx *= -1;
-        if (o.y < 0 || o.y > canvas.height) o.vy *= -1;
+        if (o.x < 0 || o.x > window.innerWidth) o.vx *= -1;
+        if (o.y < 0 || o.y > window.innerHeight) o.vy *= -1;
 
         if (o.type === "emoji") {
             ctx.font = o.size + "px Arial";
@@ -132,7 +139,7 @@ function loop() {
         ctx.fillRect(-c.size/2, -c.size/2, c.size, c.size);
         ctx.restore();
 
-        if (c.y > canvas.height + 50) {
+        if (c.y > window.innerHeight + 50) {
             confetti.splice(i, 1);
         }
     }
