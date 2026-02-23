@@ -1,0 +1,36 @@
+ body {
+    margin: 0;
+    overflow: hidden;
+    background: transparent;
+}
+
+#emoji-container {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.emoji {
+    position: absolute;
+    user-select: none;
+    pointer-events: none;
+    will-change: transform, opacity;
+}
+
+.sticker {
+    position: absolute;
+    user-select: none;
+    pointer-events: none;
+    will-change: transform, opacity;
+}
+
+.particle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: transform, opacity;
+}
